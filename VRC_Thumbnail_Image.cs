@@ -1,36 +1,74 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 [ExecuteInEditMode]
 public class VRC_Thumbnail_Image : MonoBehaviour
 {
-    public bool isEnabled = true;
-    public Material materialToUse;
-    public bool isTesting = false;
+    [Tooltip("A 1024x768 image to display as the thumbnail background")]
+    public Texture2D imageToUse;
+    [Tooltip("Test it out in your editor")]
+    public bool testInEditor = false;
+    [Tooltip("Test it out in play mode")]
+    public bool testInPlay = false;
+    [Tooltip("If to set every root game object to inactive")]
+    public bool hideBackgroundObjects = true;
+    [Tooltip("A list of game objects to exclude")]
+    public Transform[] objectsToExclude;
+    [Tooltip("Push the camera left or right")]
+    public float offsetX = 0f;
+    [Tooltip("Push the camera up or down")]
+    public float offsetY = 0f;
+    [Tooltip("If to override an animator with a new controller (only in play mode)")]
+    public bool overrideAnimator = false;
+    [Tooltip("The animator to override")]
+    public Animator target;
+    [Tooltip("The controller to use")]
+    public RuntimeAnimatorController controller;
 
     bool hasCompletedSetup = false;
 
+    bool previousIsTesting = false;
     Camera camera;
-    GameObject mesh;
+    GameObject canvasGameObject;
     GameObject testCamera;
 
     void Update() {
-        if (isEnabled == false || materialToUse == null) {
-            return;
-        }
-
-        if (isTesting == false) {
-            StopTesting();
+        if (previousIsTesting != testInEditor) {
+            if (testInEditor == false) {
+                StopTesting();
+            }
+            previousIsTesting = testInEditor;
         }
 
         if (hasCompletedSetup == false) {
             if (Application.isPlaying == true) {
-                DoIt();
+                if (testInPlay && !IsInVrchatPublishMode()) {
+                    StartTesting();
+                } else {
+                    DoIt();
+                }
             } else {
-                if (isTesting == true) {
+                if (testInEditor == true) {
                     StartTesting();
                 }
             }
         }
+
+        if (canvasGameObject != null) {
+            canvasGameObject.transform.position = new Vector3(offsetX, offsetY, -10);
+        }
+
+        if (camera != null) {
+            camera.transform.position = new Vector3(offsetX, offsetY, 10);
+        }
+    }
+
+    bool IsInVrchatPublishMode() {
+        return GameObject.Find("/VRCCam") != null;
     }
 
     Camera GetVRCCamera() {
@@ -48,7 +86,7 @@ public class VRC_Thumbnail_Image : MonoBehaviour
     void StartTesting() {
         Debug.Log("Starting testing...");
 
-        isTesting = true;
+        testInEditor = true;
 
         CreateTestCamera();
         
@@ -58,9 +96,9 @@ public class VRC_Thumbnail_Image : MonoBehaviour
     void StopTesting() {
         Debug.Log("Stopping testing...");
 
-        isTesting = false;
+        testInEditor = false;
 
-        ClearMesh();
+        ClearOutput();
         RemoveTestCamera();
 
         hasCompletedSetup = false;
@@ -72,17 +110,64 @@ public class VRC_Thumbnail_Image : MonoBehaviour
         camera = GetVRCCamera();
 
         if (camera == null) {
+            Debug.Log("VRC camera not detected - stopping");
             return;
         }
 
-        camera.transform.position = new Vector3(0, 0, -9f);
-        camera.transform.rotation = Quaternion.Euler(0, 180, 0);
-        camera.orthographic = true;
-        camera.orthographicSize = 7.5f;
+        if (testInEditor != true) {
+            HideBackgroundObjects();
+        }
 
-        StoreMesh();
+        ConfigureCamera();
+
+        if (overrideAnimator && Application.isPlaying == true) {
+            ConfigureAnimator();
+        }
+
+        ShowOutput();
 
         hasCompletedSetup = true;
+    }
+
+    void ConfigureCamera() {
+        if (camera == null) {
+            return;
+        }
+        camera.transform.rotation = Quaternion.Euler(0, 180, 0);
+        camera.orthographic = true;
+        camera.orthographicSize = 1;
+        camera.cullingMask = -1; // UI hidden by default
+    }
+
+    void ConfigureAnimator() {
+        target.runtimeAnimatorController = controller;
+    }
+
+    List<GameObject> GetRootGameObjects() {
+        List<GameObject> rootObjects = new List<GameObject>();
+        Scene scene = SceneManager.GetActiveScene();
+        scene.GetRootGameObjects(rootObjects);
+        return rootObjects;
+    }
+
+    List<GameObject> FilterGameObjectsToHide(List<GameObject> allGameObjects) {
+        return allGameObjects.Where(go => go.name != "VRCCam" && go.name != "VRCSDK" && go != this.gameObject && !objectsToExclude.Any(go2 => go == go2.gameObject)).ToList();
+    }
+
+    void HideBackgroundObjects() {
+        if (!hideBackgroundObjects) {
+            return;
+        }
+
+        var allRootGameObjects = GetRootGameObjects();
+
+        var gameObjectsToHide = FilterGameObjectsToHide(allRootGameObjects);
+
+        Debug.Log("Hiding " + gameObjectsToHide.Count + " game objects...");
+
+        foreach (GameObject gameObjectToHide in gameObjectsToHide) {
+            gameObjectToHide.SetActive(false);
+        }
     }
 
     void CreateTestCamera() {
@@ -98,35 +183,25 @@ public class VRC_Thumbnail_Image : MonoBehaviour
         DestroyImmediate(testCamera);
     }
 
-    void ClearMesh() {
-        Debug.Log("Clear mesh...");
+    void ClearOutput() {
+        Debug.Log("Clearing output...");
 
-        if (mesh == null) {
+        if (canvasGameObject == null) {
             return;
         }
-
-        mesh.GetComponent<MeshRenderer>().material = null;
-        mesh.SetActive(false);
+    
+        canvasGameObject.SetActive(false);
     }
 
-    void StoreMesh() {
-        Debug.Log("Storing mesh...");
+    void ShowOutput() {
+        Debug.Log("Showing output...");
 
-        mesh = FindObject("Plane");
-        mesh.GetComponent<MeshRenderer>().material = materialToUse;
-        mesh.SetActive(true);
-    }
-
-    public GameObject FindObject(string name)
-    {
-        Component[] transforms = this.gameObject.GetComponentsInChildren(typeof(Transform), true);
-
-        foreach(Transform transform in transforms ) {
-            if (transform.name == name){
-                return transform.gameObject;
-            }
+        canvasGameObject = transform.Find("Canvas").gameObject;
+        
+        if (imageToUse != null) {
+            canvasGameObject.transform.Find("RawImage").gameObject.GetComponent<RawImage>().texture = imageToUse;
         }
 
-        return null;
+        canvasGameObject.SetActive(true);
     }
 }

@@ -1,30 +1,32 @@
 # VRC Thumbnail Image
 
-A Unity script to set the VRC camera to a material when uploading your avatar.
+A Unity script to automate using a static image as the background for your VRChat thumbnail.
 
 ## Usage
 
-1. Import the Unity package into your project
-2. Add `VRC_Thumbnail_Image.prefab` to your scene
-3. Create a new material and insert it into "Material To Use" in the prefab's script
-   - For albedo set it to a 4:3 image (eg. 1024x768)
-   - Enable emission and set the emission to the same image
-4. Build your avatar and your material should be visible
+Ensure your Display 1 (in Game panel) is set to 4:3.
 
-Enable "Is Testing" to preview the material in edit mode. Note the camera will not be identical to VRC's one.
+1. Import the `.unitypackage` into your project
+2. Drag the `VRC_Thumbnail_Image.prefab` into your scene
+3. Configure and test
+4. Build your VRChat avatar or world and your image should be visible
 
-![img](./Assets/hierarchy.png)
-![img](./Assets/inspect%20script.png)
-![img](./Assets/scene%20test%20mode.png)
+![Screenshot hierarchy](./Assets/screenshot_hierarchy.png)
 
 ## FAQ
 
+### How do I scale/pose/animate my avatar for the thumbnail?
+
+Create a new animator that plays your animation then enable "override animator".
+
+Alternatively duplicate/prefab your avatar and hide the main one.
+
+**If you want to animate your avatar's root transform you may need to disable "Apply Root Motion" in play mode.**
+
 ### How do I change the lighting?
 
-Play with the Unity lighting settings.
+Do this in Unity either through the Lighting panel or using lights in your scene.
 
-Enable emission in your material to override the lighting.
+I recommend disabling all scene lights and in the Lighting panel set the Environmental lighting source to a gradient from white then grey (224,224,224) then black:
 
-### How do I see my own avatar in the camera?
-
-The script modified the VRC camera once. After it has modified it you can change it as much as you like.
+![Screenshot lighting](./Assets/screenshot_lighting.png)
