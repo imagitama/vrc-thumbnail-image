@@ -1,3 +1,5 @@
+**This package is no longer required as the SDK now lets you specify an image during upload**
+
 # VRC Thumbnail Image
 
 A Unity script to automate using a static image as the background for your VRChat thumbnail.
